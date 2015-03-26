@@ -464,7 +464,7 @@ class FacebookAuthorization(FacebookConnection):
         and
         http://sunilarora.org/parsing-signedrequest-parameter-in-python-bas
         '''
-        from open_facebook.utils import base64_url_decode_php_style
+        from open_facebook.utils import base64_url_decode_php_style, smart_str
         l = signed_request.split('.', 2)
         encoded_sig = l[0]
         payload = l[1]
@@ -472,7 +472,7 @@ class FacebookAuthorization(FacebookConnection):
         sig = base64_url_decode_php_style(encoded_sig)
         import hmac
         import hashlib
-        data = json.loads(base64_url_decode_php_style(payload))
+        data = json.loads(base64_url_decode_php_style(payload).decode('utf-8'))
 
         algo = data.get('algorithm').upper()
         if algo != 'HMAC-SHA256':
@@ -482,10 +482,12 @@ class FacebookAuthorization(FacebookConnection):
             logger.error('Unknown algorithm')
             return None
         else:
-            expected_sig = hmac.new(secret, msg=payload,
+            expected_sig = hmac.new(smart_str(secret), msg=smart_str(payload),
                                     digestmod=hashlib.sha256).digest()
 
-        if sig != expected_sig:
+        if (hasattr(hmac, 'compare_digest') and
+                not hmac.compare_digest(sig, expected_sig) or
+                sig != expected_sig):
             error_format = 'Signature %s didnt match the expected signature %s'
             error_message = error_format % (sig, expected_sig)
             send_warning(error_message)
@@ -859,16 +861,30 @@ class OpenFacebook(FacebookConnection):
 
         :returns: dict
         '''
+        permissions_dict = {}
         try:
             permissions = {}
             permissions_response = self.get('me/permissions')
-            if permissions_response.get('data'):
-                permissions = permissions_response['data'][0]
-        except facebook_exceptions.OAuthException:
-            permissions = {}
-        permissions_dict = dict([(k, bool(int(v)))
+
+            # determine whether we're dealing with 1.0 or 2.0+
+            for permission in permissions_response.get('data', []):
+                # graph api 2.0+, returns multiple dicts with keys 'status' and 'permission'
+                if any(value in ['granted', 'declined'] for value in permission.values()):  
+                    for perm in permissions_response['data']:
+                        grant = perm.get('status') == 'granted'
+                        name = perm.get('permission')
+                        if grant and name:  # just in case something goes sideways
+                            permissions_dict[name] = grant
+                # graph api 1.0, returns single dict as {permission: intval}
+                elif any(value in [0, 1, '0', '1'] for value in permission.values()):  
+                    permissions = permissions_response['data'][0]
+                    permissions_dict = dict([(k, bool(int(v)))
                                  for k, v in permissions.items()
                                  if v == '1' or v == 1])
+                break
+        except facebook_exceptions.OAuthException:
+            pass
+
         return permissions_dict
 
     def has_permissions(self, required_permissions):
