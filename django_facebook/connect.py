@@ -5,6 +5,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db import transaction
 from django.db.utils import IntegrityError
 import json
+from django.utils import six
 from django_facebook import exceptions as facebook_exceptions, \
     settings as facebook_settings, signals
 from django_facebook.api import get_facebook_graph
@@ -161,7 +162,7 @@ def _update_likes_and_friends(request, user, facebook):
                     exc_info=sys.exc_info(), extra={
                         'request': request,
                         'data': {
-                            'body': unicode(e),
+                            'body': six.text_type(e),
                         }
                     })
         transaction.savepoint_rollback(sid)

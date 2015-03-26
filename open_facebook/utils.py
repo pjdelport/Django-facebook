@@ -5,10 +5,7 @@ import functools
 import json
 
 from django.utils import six
-try:
-    unicode = unicode
-except NameError:
-    unicode = str
+
 
 logger = logging.getLogger(__name__)
 URL_PARAM_RE = re.compile('(?P<k>[^(=|&)]+)=(?P<v>[^&]+)(&|$)')
@@ -60,7 +57,7 @@ def base64_url_decode_php_style(inp):
     import base64
     padding_factor = (4 - len(inp) % 4) % 4
     inp += "=" * padding_factor
-    return base64.b64decode(unicode(inp).translate(
+    return base64.b64decode(six.text_type(inp).translate(
         dict(zip(map(ord, u'-_'), u'+/'))))
 
 
@@ -93,8 +90,8 @@ def smart_str(s, encoding='utf-8', strings_only=False, errors='strict'):
                 # further exception.
                 return ' '.join([smart_str(arg, encoding, strings_only,
                                            errors) for arg in s])
-            return unicode(s).encode(encoding, errors)
-    elif isinstance(s, unicode):
+            return six.text_type(s).encode(encoding, errors)
+    elif isinstance(s, six.text_type):
         return s.encode(encoding, errors)
     elif s and encoding != 'utf-8':
         return s.decode('utf-8', errors).encode(encoding, errors)
@@ -112,7 +109,7 @@ def send_warning(message, request=None, e=None, **extra_data):
 
     error_message = None
     if e:
-        error_message = unicode(e)
+        error_message = six.text_type(e)
 
     data = {
         'username': username,

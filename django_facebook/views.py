@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.http import Http404
 from django.shortcuts import render
+from django.utils import six
 from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -15,10 +16,6 @@ from open_facebook import exceptions as open_facebook_exceptions
 from open_facebook.utils import send_warning
 import logging
 
-try:
-    unicode = unicode
-except NameError:
-    unicode = str
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +76,7 @@ def _connect(request, graph):
         except facebook_exceptions.IncompleteProfileError as e:
             # show them a registration form to add additional data
             warning_format = u'Incomplete profile data encountered with error %s'
-            warn_message = warning_format % unicode(e)
+            warn_message = warning_format % six.text_type(e)
             send_warning(warn_message, e=e,
                          facebook_data=facebook_data)
 
